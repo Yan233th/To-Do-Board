@@ -15,7 +15,7 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     env:
-      PROJECT_NAME: To-Do-Board
+      PROJECT_NAME: To-Do-Board-Backend
     steps:
       - name: Create Release
         id: create_release
@@ -36,7 +36,7 @@ jobs:
     needs: create-release
     runs-on: ${{ matrix.os }}
     env:
-      PROJECT_NAME: To-Do-Board
+      PROJECT_NAME: To-Do-Board-Backend
       VERSION: ${{ github.event.inputs.tag_name }}
     strategy:
       fail-fast: false
