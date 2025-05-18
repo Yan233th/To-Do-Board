@@ -1,5 +1,5 @@
 [package]
-name = "Backend"
+name = "To-Do-Board-Backend"
 version = "0.1.0"
 edition = "2024"
 
