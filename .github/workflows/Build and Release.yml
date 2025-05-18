@@ -64,14 +64,13 @@ jobs:
           override: true
 
       - name: Build project
-        working-directory: ./Backend
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target ${{ matrix.target }}
+        working-directory: ./Backend
 
       - name: Upload release asset
-        working-directory: ./Backend
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -80,3 +79,4 @@ jobs:
           asset_path: target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
           asset_name: ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.target-label }}${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
           asset_content_type: application/octet-stream
+        working-directory: ./Backend
