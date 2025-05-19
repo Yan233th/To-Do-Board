@@ -43,8 +43,7 @@ function renderTodos(todos) {
 async function fetchTodos() {
     toggleLoading(true);
     try {
-        // const response = await fetch('http://127.0.0.1:3072/todos');
-        const response = await fetch('http://1.117.61.247:3072/todos');
+        const response = await fetch('https://todo.emptydust.com/todos');
         if (!response.ok) {
             throw new Error('Failed to fetch TODOs');
         }
