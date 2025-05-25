@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:3072';
+const API_BASE_URL = 'https://todo.emptydust.com';
 const TODOS_ENDPOINT = `${API_BASE_URL}/todos`;
 
 // Cache DOM elements

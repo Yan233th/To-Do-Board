@@ -1,5 +1,5 @@
 // API and LocalStorage Constants
-const API_BASE_URL = 'http://127.0.0.1:3072'; //
+const API_BASE_URL = 'https://todo.emptydust.com'; //
 const TODOS_ENDPOINT = `${API_BASE_URL}/todos`; //
 const LS_KEY_JWT_TOKEN = 'jwtToken'; //
 
@@ -94,7 +94,7 @@ function getToken() { //
 
 function redirectToLogin() { //
     localStorage.removeItem(LS_KEY_JWT_TOKEN); //
-    window.location.href = '../login/login.html'; //
+    window.location.href = '/login'; //
 }
 
 // --- Modal Management ---

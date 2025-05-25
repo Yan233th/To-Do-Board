@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:3072';
+const API_BASE_URL = 'https://todo.emptydust.com';
 const LOGIN_ENDPOINT = `${API_BASE_URL}/login`;
 
 // Configuration for login attempts
@@ -68,7 +68,7 @@ function handleInitialPageLoad() {
     } else if (localStorage.getItem('jwtToken')) {
         // If already logged in, redirect to manage page
         // The API spec indicates JWT expires in 24 hours. A server check upon loading manage.html would be ideal.
-        window.location.href = '../manage/manage.html'; // Assuming manage.html is in a 'manage' folder sibling to 'login'
+        window.location.href = '/manage'; // Assuming manage.html is in a 'manage' folder sibling to 'login'
         return true;
     }
     return false;
@@ -122,7 +122,7 @@ if (loginForm) {
             const { token } = await response.json(); // Successful login returns a token
             resetLoginAttempts();
             localStorage.setItem('jwtToken', token);
-            window.location.href = '../manage/manage.html'; // Redirect on successful login
+            window.location.href = '/manage'; // Redirect on successful login
         } catch (error) {
             showLoginError(error.message);
         } finally {
