@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use std::{env, fs, net::SocketAddr, sync::Arc};
 use tower_http::cors::CorsLayer;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct AdminUser {
     username: String,
     password: String,
@@ -24,19 +24,19 @@ struct AppState {
     jwt_secret: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Claims {
     sub: String, // username
     exp: i64,    // expiration time
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct LoginRequest {
     username: String,
     password: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Todo {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<i64>,
@@ -50,7 +50,7 @@ struct Todo {
     creator: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct TodoRequest {
     action: String,
     todo: Option<Todo>,
@@ -59,7 +59,7 @@ struct TodoRequest {
 
 async fn get_todos() -> Json<Value> {
     let todos_file_path = env::var("TODOS_FILE_PATH").unwrap_or("todos.json".to_owned());
-    match fs::read_to_string(&todos_file_path) {
+    return match fs::read_to_string(&todos_file_path) {
         Ok(data_str) => match serde_json::from_str(&data_str) {
             Ok(json_value) => Json(json_value),
             Err(parse_error) => {
@@ -71,12 +71,12 @@ async fn get_todos() -> Json<Value> {
             eprintln!("Error: Failed to read file '{}': {}. Returning empty list.", &todos_file_path, file_err);
             Json(json!([]))
         }
-    }
+    };
 }
 
 async fn login(State(state): State<Arc<AppState>>, Json(login): Json<LoginRequest>) -> Result<Json<Value>, StatusCode> {
     let user = state.admins.iter().find(|admin| admin.username == login.username && admin.password == login.password);
-    match user {
+    return match user {
         Some(admin) => {
             let expiration = Utc::now() + Duration::hours(24);
             let claims = Claims {
@@ -84,10 +84,10 @@ async fn login(State(state): State<Arc<AppState>>, Json(login): Json<LoginReques
                 exp: expiration.timestamp(),
             };
             let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(state.jwt_secret.as_ref())).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            Ok(Json(json!({ "token": token })))
+            Ok(Json(json!({"token": token})))
         }
         None => Err(StatusCode::UNAUTHORIZED),
-    }
+    };
 }
 
 async fn auth_middleware(State(state): State<Arc<AppState>>, request: axum::http::Request<axum::body::Body>, next: axum::middleware::Next) -> Result<axum::response::Response, StatusCode> {
@@ -100,11 +100,11 @@ async fn auth_middleware(State(state): State<Arc<AppState>>, request: axum::http
     let claims = decode::<Claims>(token, &DecodingKey::from_secret(state.jwt_secret.as_ref()), &Validation::default())
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .claims;
-    if state.admins.iter().any(|admin| admin.username == claims.sub) {
+    return if state.admins.iter().any(|admin| admin.username == claims.sub) {
         Ok(next.run(request).await)
     } else {
         Err(StatusCode::FORBIDDEN)
-    }
+    };
 }
 
 async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json<TodoRequest>) -> Result<Json<Value>, StatusCode> {
@@ -150,7 +150,7 @@ async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json<Tod
     }
     let json_str = serde_json::to_string_pretty(&todos).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     fs::write(&todos_file_path, json_str).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Json(json!({ "message": "Operation successful" })))
+    return Ok(Json(json!({"message": "Operation successful"})));
 }
 
 #[tokio::main]
