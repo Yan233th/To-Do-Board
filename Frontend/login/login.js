@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://todo.emptydust.com';
+const API_BASE_URL = 'https://todo.emptydust.com/api';
 const LOGIN_ENDPOINT = `${API_BASE_URL}/login`;
 
 // Configuration for login attempts

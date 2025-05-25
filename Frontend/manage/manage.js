@@ -1,5 +1,5 @@
 // API and LocalStorage Constants
-const API_BASE_URL = 'https://todo.emptydust.com'; //
+const API_BASE_URL = 'https://todo.emptydust.com/api'; //
 const TODOS_ENDPOINT = `${API_BASE_URL}/todos`; //
 const LS_KEY_JWT_TOKEN = 'jwtToken'; //
 
