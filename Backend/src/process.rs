@@ -64,35 +64,25 @@ pub async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json
     match request.action.as_str() {
         "add" => {
             if let Some(mut todo) = request.todo {
-                let new_id = todos.iter().map(|t| t.id).max().unwrap_or(0) + 1;
-                todo.id = new_id;
+                todo.id = todos.iter().map(|t| t.id).max().unwrap_or(0) + 1;
                 todos.push(todo);
             } else {
                 return Err(StatusCode::BAD_REQUEST);
             }
         }
         "update" => {
-            if let Some(id) = request.id {
-                if let Some(mut todo) = request.todo {
-                    if let Some(index) = todos.iter().position(|t| t.id == id) {
-                        todo.id = id;
-                        todos[index] = todo;
-                    } else {
-                        return Err(StatusCode::NOT_FOUND);
-                    }
-                } else {
-                    return Err(StatusCode::BAD_REQUEST);
-                }
+            let id = request.id.ok_or(StatusCode::BAD_REQUEST)?;
+            let mut todo = request.todo.ok_or(StatusCode::BAD_REQUEST)?;
+            if let Some(index) = todos.iter().position(|t| t.id == id) {
+                todo.id = id;
+                todos[index] = todo;
             } else {
-                return Err(StatusCode::BAD_REQUEST);
+                return Err(StatusCode::NOT_FOUND);
             }
         }
         "delete" => {
-            if let Some(id) = request.id {
-                todos.retain(|todo| todo.id != id);
-            } else {
-                return Err(StatusCode::BAD_REQUEST);
-            }
+            let id = request.id.ok_or(StatusCode::BAD_REQUEST)?;
+            todos.retain(|todo| todo.id != id);
         }
         _ => return Err(StatusCode::BAD_REQUEST),
     }
