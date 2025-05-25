@@ -38,8 +38,7 @@ struct LoginRequest {
 
 #[derive(Serialize, Deserialize)]
 struct Todo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<i64>,
+    id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     task: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -116,8 +115,8 @@ async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json<Tod
     match request.action.as_str() {
         "add" => {
             if let Some(mut todo) = request.todo {
-                let new_id = todos.iter().map(|t| t.id.unwrap_or(0)).max().unwrap_or(0) + 1;
-                todo.id = Some(new_id);
+                let new_id = todos.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+                todo.id = new_id; // 直接赋值，id 是必填
                 todos.push(todo);
             } else {
                 return Err(StatusCode::BAD_REQUEST);
@@ -126,8 +125,8 @@ async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json<Tod
         "update" => {
             if let Some(id) = request.id {
                 if let Some(mut todo) = request.todo {
-                    if let Some(index) = todos.iter().position(|t| t.id == Some(id)) {
-                        todo.id = Some(id);
+                    if let Some(index) = todos.iter().position(|t| t.id == id) {
+                        todo.id = id; // 直接赋值，id 是必填
                         todos[index] = todo;
                     } else {
                         return Err(StatusCode::NOT_FOUND);
@@ -141,7 +140,7 @@ async fn post_todos(State(_state): State<Arc<AppState>>, Json(request): Json<Tod
         }
         "delete" => {
             if let Some(id) = request.id {
-                todos.retain(|todo| todo.id != Some(id));
+                todos.retain(|todo| todo.id != id); // 直接比较 id
             } else {
                 return Err(StatusCode::BAD_REQUEST);
             }
