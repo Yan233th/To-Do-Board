@@ -28,3 +28,20 @@
     transform: translateY(-5px);
     box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
 }
+
+/* Form input focus and error states */
+input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#error:not(.hidden) {
+    background-color: #fee2e2;
+    padding: 1rem;
+    border-radius: 0.375rem;
+}
+
+/* Button transitions */
+button {
+    transition: background-color 0.3s ease;
+}
