@@ -24,9 +24,10 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
-    pub id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

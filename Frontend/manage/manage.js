@@ -1,182 +1,304 @@
-function toggleLoading(show) {
-    document.getElementById('loading').classList.toggle('hidden', !show);
-    document.getElementById('todo-list').classList.toggle('hidden', show);
-    document.getElementById('error').classList.add('hidden');
+// API and LocalStorage Constants
+const API_BASE_URL = 'http://127.0.0.1:3072';
+const TODOS_ENDPOINT = `${API_BASE_URL}/todos`;
+const LS_KEY_JWT_TOKEN = 'jwtToken';
+
+// DOM Elements
+const loadingIndicator = document.getElementById('loadingIndicator');
+const todoListContainer = document.getElementById('todoListContainer');
+const noTodosMessage = document.getElementById('noTodosMessage');
+const addTodoForm = document.getElementById('addTodoForm');
+const logoutButton = document.getElementById('logoutButton');
+
+// Edit Modal Elements
+const editTodoModal = document.getElementById('editTodoModal');
+const closeEditModalButton = document.getElementById('closeEditModalButton');
+const cancelEditButton = document.getElementById('cancelEditButton');
+const editTodoForm = document.getElementById('editTodoForm');
+const editTodoIdInput = document.getElementById('editTodoId');
+const editTaskInput = document.getElementById('editTask');
+const editAssigneeInput = document.getElementById('editAssignee');
+const editCreatorInput = document.getElementById('editCreator');
+const editCompletedCheckbox = document.getElementById('editCompleted');
+
+// --- Utility Functions ---
+function showLoading(show) {
+    if (show) {
+        loadingIndicator.classList.remove('hidden');
+        todoListContainer.classList.add('hidden');
+        noTodosMessage.classList.add('hidden');
+    } else {
+        loadingIndicator.classList.add('hidden');
+        todoListContainer.classList.remove('hidden');
+    }
 }
 
-function showError(message) {
-    document.getElementById('error').textContent = message;
-    document.getElementById('error').classList.remove('hidden');
-    document.getElementById('loading').classList.add('hidden');
-    document.getElementById('todo-list').classList.add('hidden');
+function showAlert(message, type = 'error') {
+    alert(`${type === 'error' ? '错误' : '信息'}: ${message}`);
 }
 
-function renderTodos(todos) {
-    const todoList = document.getElementById('todo-list');
-    todoList.innerHTML = '';
+function getToken() {
+    return localStorage.getItem(LS_KEY_JWT_TOKEN);
+}
 
-    todos.forEach(todo => {
-        const todoCard = document.createElement('div');
-        todoCard.className = 'todo-card bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col space-y-2';
+function redirectToLogin() {
+    localStorage.removeItem(LS_KEY_JWT_TOKEN);
+    window.location.href = '../login/login.html';
+}
 
-        const taskInfo = document.createElement('div');
-        taskInfo.innerHTML = `
-            <h3 class="text-lg font-semibold ${todo.completed ? 'line-through text-gray-500' : 'text-gray-800'}">
-                ${todo.task}
-            </h3>
-            <p class="text-sm text-gray-600">Assigned to: ${todo.assignee}</p>
-            <p class="text-sm text-gray-600">Created by: ${todo.creator}</p>
-        `;
+// --- Modal Management ---
+function openEditModal(todo) {
+    editTodoIdInput.value = todo.id;
+    editTaskInput.value = todo.task || '';
+    editAssigneeInput.value = todo.assignee || '';
+    editCreatorInput.value = todo.creator || '';
+    editCompletedCheckbox.checked = todo.completed || false;
 
-        const status = document.createElement('span');
-        status.className = `px-3 py-1 rounded-full text-sm font-medium ${todo.completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-            }`;
-        status.textContent = todo.completed ? 'Completed' : 'Pending';
+    editTodoModal.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+    editTodoModal.classList.add('opacity-100', 'scale-100');
+    document.body.classList.add('modal-active');
+}
 
-        const buttonGroup = document.createElement('div');
-        buttonGroup.className = 'flex space-x-2';
-        const toggleButton = document.createElement('button');
-        toggleButton.className = 'bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition';
-        toggleButton.textContent = todo.completed ? 'Mark Pending' : 'Mark Completed';
-        toggleButton.onclick = () => updateTodo(todo.id, { completed: !todo.completed });
+function closeEditModal() {
+    editTodoModal.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+    editTodoModal.classList.remove('opacity-100', 'scale-100');
+    document.body.classList.remove('modal-active');
+    editTodoForm.reset();
+}
 
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition';
-        deleteButton.textContent = 'Delete';
-        deleteButton.onclick = () => deleteTodo(todo.id);
+// --- API Call Functions ---
+async function fetchWithAuth(url, options = {}) {
+    const token = getToken();
+    if (!token) {
+        showAlert('未找到认证令牌。请重新登录。');
+        redirectToLogin();
+        throw new Error('No token found');
+    }
 
-        buttonGroup.appendChild(toggleButton);
-        buttonGroup.appendChild(deleteButton);
-        todoCard.appendChild(taskInfo);
-        todoCard.appendChild(status);
-        todoCard.appendChild(buttonGroup);
-        todoList.appendChild(todoCard);
-    });
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+    };
+
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401 || response.status === 403) {
+        showAlert('会话已过期或无权限。请重新登录。');
+        redirectToLogin();
+        throw new Error('Unauthorized or Forbidden');
+    }
+    return response;
 }
 
 async function fetchTodos() {
-    toggleLoading(true);
+    showLoading(true);
     try {
-        const token = localStorage.getItem('jwtToken');
-        if (!token) throw new Error('No token found, please login');
-
-        const response = await fetch('https://todo.emptydust.com/todos', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwtToken');
-            window.location.href = '../login/login.html';
-            return;
+        const response = await fetchWithAuth(TODOS_ENDPOINT);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: '获取任务列表失败，请稍后重试。' }));
+            throw new Error(errorData.message || `HTTP error ${response.status}`);
         }
-
-        if (!response.ok) throw new Error('Failed to fetch TODOs');
-
         const todos = await response.json();
         renderTodos(todos);
-        toggleLoading(false);
     } catch (error) {
-        showError(error.message);
+        if (error.message !== 'No token found' && error.message !== 'Unauthorized or Forbidden') {
+            showLoading(false);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            showAlert(`获取任务失败: ${error.message}`);
+        }
+        renderTodos([]);
+    } finally {
+        showLoading(false);
     }
 }
 
-async function addTodo(todo) {
+async function addTodo(todoData) {
     try {
-        const token = localStorage.getItem('jwtToken');
-        const response = await fetch('https://todo.emptydust.com/todos', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+        const payload = {
+            action: 'add',
+            todo: {
+                task: todoData.task,
+                assignee: todoData.assignee || null,
+                creator: todoData.creator || null,
+                completed: false,
             },
-            body: JSON.stringify({ action: 'add', todo })
+        };
+        const response = await fetchWithAuth(TODOS_ENDPOINT, {
+            method: 'POST',
+            body: JSON.stringify(payload),
         });
 
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwtToken');
-            window.location.href = '../login/login.html';
-            return;
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: '添加任务失败，请检查输入或稍后重试。' }));
+            throw new Error(errorData.message || `HTTP error ${response.status}`);
         }
-
-        if (!response.ok) throw new Error('Failed to add TODO');
-
+        showAlert('任务添加成功!', 'success');
         await fetchTodos();
+        addTodoForm.reset();
     } catch (error) {
-        showError(error.message);
+        if (error.message !== 'No token found' && error.message !== 'Unauthorized or Forbidden') {
+            showAlert(`添加任务失败: ${error.message}`);
+        }
     }
 }
 
-async function updateTodo(id, updates) {
+async function updateTodo(id, updatedTodoData) {
     try {
-        const token = localStorage.getItem('jwtToken');
-        const response = await fetch('https://todo.emptydust.com/todos', {
+        const payload = {
+            action: 'update',
+            id: parseInt(id, 10),
+            todo: updatedTodoData,
+        };
+        const response = await fetchWithAuth(TODOS_ENDPOINT, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ action: 'update', id, todo: updates })
+            body: JSON.stringify(payload),
         });
 
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwtToken');
-            window.location.href = '../login/login.html';
-            return;
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: '更新任务失败，请稍后重试。' }));
+            throw new Error(errorData.message || `HTTP error ${response.status}`);
         }
-
-        if (!response.ok) throw new Error('Failed to update TODO');
-
+        showAlert('任务更新成功!', 'success');
+        closeEditModal();
         await fetchTodos();
     } catch (error) {
-        showError(error.message);
+        if (error.message !== 'No token found' && error.message !== 'Unauthorized or Forbidden') {
+            showAlert(`更新任务失败: ${error.message}`);
+        }
     }
 }
 
 async function deleteTodo(id) {
+    if (!confirm('确定要删除这个任务吗？此操作无法撤销。')) {
+        return;
+    }
     try {
-        const token = localStorage.getItem('jwtToken');
-        const response = await fetch('https://todo.emptydust.com/todos', {
+        const payload = {
+            action: 'delete',
+            id: parseInt(id, 10),
+        };
+        const response = await fetchWithAuth(TODOS_ENDPOINT, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ action: 'delete', id })
+            body: JSON.stringify(payload),
         });
 
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwtToken');
-            window.location.href = '../login/login.html';
-            return;
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: '删除任务失败，请稍后重试。' }));
+            throw new Error(errorData.message || `HTTP error ${response.status}`);
         }
-
-        if (!response.ok) throw new Error('Failed to delete TODO');
-
+        showAlert('任务删除成功!', 'success');
         await fetchTodos();
     } catch (error) {
-        showError(error.message);
+        if (error.message !== 'No token found' && error.message !== 'Unauthorized or Forbidden') {
+            showAlert(`删除任务失败: ${error.message}`);
+        }
     }
 }
 
-document.getElementById('add-todo-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const todo = {
-        task: document.getElementById('task').value || undefined,
-        assignee: document.getElementById('assignee').value || undefined,
-        creator: document.getElementById('creator').value || undefined,
-        completed: false
-    };
-    await addTodo(todo);
-    document.getElementById('add-todo-form').reset();
-});
+// --- Rendering Functions ---
+function renderTodos(todos) {
+    todoListContainer.innerHTML = '';
 
-document.getElementById('logout').addEventListener('click', () => {
-    localStorage.removeItem('jwtToken');
-    window.location.href = '../login/login.html';
-});
+    if (!todos || todos.length === 0) {
+        noTodosMessage.classList.remove('hidden');
+        todoListContainer.classList.add('hidden');
+        return;
+    }
 
-if (!localStorage.getItem('jwtToken')) {
-    window.location.href = '../login/login.html';
-} else {
-    fetchTodos();
+    noTodosMessage.classList.add('hidden');
+    todoListContainer.classList.remove('hidden');
+
+    todos.forEach(todo => {
+        const card = document.createElement('div');
+        card.className = `bg-white p-5 rounded-lg shadow-md flex flex-col border-l-4 ${todo.completed ? 'border-green-500' : 'border-yellow-500'}`;
+
+        // Container for task details (title, assignee, creator, ID)
+        const taskDetailsContainer = document.createElement('div');
+        // 修改下面这行：
+        taskDetailsContainer.className = 'flex-grow'; // <--- 添加 'flex-grow' 类
+
+        let taskInfoHTML = `<h3 class="text-xl font-semibold ${todo.completed ? 'line-through text-gray-500' : 'text-gray-800'}">${todo.task || '未命名任务'}</h3>`;
+        if (todo.assignee) {
+            taskInfoHTML += `<p class="text-sm text-gray-600">负责人: ${todo.assignee}</p>`;
+        }
+        if (todo.creator) {
+            taskInfoHTML += `<p class="text-sm text-gray-600">创建人: ${todo.creator}</p>`;
+        }
+        taskInfoHTML += `<p class="text-xs text-gray-400 mt-1">ID: ${todo.id}</p>`;
+        taskDetailsContainer.innerHTML = taskInfoHTML;
+
+        // Container for status and buttons
+        const bottomContainer = document.createElement('div');
+        // bottomContainer 的 className 保持不变，mt-4 和 pt-4 用于内边距和边框，space-y-3 用于状态和按钮之间的间距
+        bottomContainer.className = 'mt-4 pt-4 border-t border-gray-200 space-y-3';
+
+        const statusBadgeHTML = `<div class="self-start"><span class="px-3 py-1 text-xs font-semibold rounded-full ${todo.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${todo.completed ? '已完成' : '待处理'}</span></div>`;
+
+        const buttonsHTML = `
+        <div class="flex flex-wrap gap-2">
+            <button data-action="edit" data-id="${todo.id}" class="flex-1 bg-blue-500 text-white px-3 py-2 text-sm rounded-md hover:bg-blue-600 transition-colors">编辑</button>
+            <button data-action="delete" data-id="${todo.id}" class="flex-1 bg-red-500 text-white px-3 py-2 text-sm rounded-md hover:bg-red-600 transition-colors">删除</button>
+        </div>
+    `;
+        bottomContainer.innerHTML = statusBadgeHTML + buttonsHTML;
+
+        card.appendChild(taskDetailsContainer);
+        card.appendChild(bottomContainer);
+
+        todoListContainer.appendChild(card);
+
+        card.querySelector('button[data-action="edit"]').addEventListener('click', () => openEditModal(todo));
+        card.querySelector('button[data-action="delete"]').addEventListener('click', () => deleteTodo(todo.id));
+    });
 }
+
+
+// --- Event Listeners ---
+addTodoForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const task = addTodoForm.elements.task.value.trim();
+    const assignee = addTodoForm.elements.assignee.value.trim();
+    const creator = addTodoForm.elements.creator.value.trim();
+
+    if (!task) {
+        showAlert('任务描述不能为空。');
+        return;
+    }
+    addTodo({ task, assignee, creator });
+});
+
+logoutButton.addEventListener('click', () => {
+    if (confirm('确定要登出吗?')) {
+        redirectToLogin();
+    }
+});
+
+closeEditModalButton.addEventListener('click', closeEditModal);
+cancelEditButton.addEventListener('click', closeEditModal);
+
+editTodoForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = editTodoIdInput.value;
+    const updatedTodoData = {
+        id: parseInt(id, 10),
+        task: editTaskInput.value.trim(),
+        assignee: editAssigneeInput.value.trim() || null,
+        creator: editCreatorInput.value.trim() || null,
+        completed: editCompletedCheckbox.checked,
+    };
+    if (!updatedTodoData.task) {
+        showAlert('任务描述不能为空。');
+        return;
+    }
+    updateTodo(id, updatedTodoData);
+});
+
+// --- Initial Page Load ---
+document.addEventListener('DOMContentLoaded', () => {
+    if (!getToken()) {
+        redirectToLogin();
+    } else {
+        fetchTodos();
+    }
+});

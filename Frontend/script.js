@@ -1,3 +1,6 @@
+const API_BASE_URL = 'http://127.0.0.1:3072';
+const TODOS_ENDPOINT = `${API_BASE_URL}/todos`;
+
 function toggleLoading(show) {
     document.getElementById('loading').classList.toggle('hidden', !show);
     document.getElementById('todo-list').classList.toggle('hidden', show);
@@ -42,7 +45,7 @@ function renderTodos(todos) {
 async function fetchTodos() {
     toggleLoading(true);
     try {
-        const response = await fetch('https://todo.emptydust.com/todos');
+        const response = await fetch(TODOS_ENDPOINT);
         if (!response.ok) {
             throw new Error('Failed to fetch TODOs');
         }
